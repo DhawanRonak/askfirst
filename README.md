@@ -4,7 +4,7 @@
 
 > Independent concept prototype for a product-management case study. Not affiliated with any company; all data is made up.
 
-**Live demo:** _add your Vercel link here after deploying_  
+**Live demo:** _add your `pages.dev` link here after deploying_  
 **Product spec:** [PRD.md](PRD.md)
 
 ## The problem
@@ -34,11 +34,16 @@ To also score the live model:
 GEMINI_API_KEY=... GEMINI_MODEL=... node eval/extract_eval.mjs --model
 ```
 
-## Deploy
+## Deploy (Cloudflare Pages, free)
 
-1. On [vercel.com](https://vercel.com), choose **Add New → Project** and import this repository.
-2. Framework preset **Other**, no build command, no root directory. Deploy.
-3. In **Settings → Environment Variables**, add `GEMINI_API_KEY` (from [Google AI Studio](https://aistudio.google.com/apikey)) and `GEMINI_MODEL` (a current Flash model name from the [models page](https://ai.google.dev/gemini-api/docs/models)), then redeploy.
+1. In the [Cloudflare dashboard](https://dash.cloudflare.com), go to **Workers & Pages → Create → Pages → Connect to Git** and pick this repository.
+2. Build settings: framework preset **None**, build command `exit 0`, build output directory `/`. Save and deploy.
+3. You get a link like `askfirst.pages.dev`. Every push to `main` redeploys automatically.
+4. To switch on the live model, open the project's **Settings → Variables and Secrets** and add:
+   - `GEMINI_API_KEY`, from [Google AI Studio](https://aistudio.google.com/apikey). Turn on **Encrypt** so it is stored as a secret.
+   - `GEMINI_MODEL`, a current Flash model name from the [models page](https://ai.google.dev/gemini-api/docs/models).
+
+   Then redeploy (**Deployments → … → Retry deployment**). The server function in `functions/api/gemini.js` reads them; the key never reaches the browser.
 
 Without the key the prototype still works, using a simple offline keyword reader, and says so on screen. Never put the key in any file in this repository.
 
@@ -51,7 +56,7 @@ Then paste the live link at the top of this README.
 | `policy.js` | The policy engine, evaluation and the offline keyword reader (pure functions) |
 | `tasks.js` | The 40 test actions |
 | `index.html` | The prototype |
-| `api/gemini.js` | Server function that calls the Gemini API, so the key never reaches the page |
+| `functions/api/gemini.js` | Cloudflare Pages Function that calls the Gemini API, so the key never reaches the page |
 | `eval/run_eval.mjs` | Scores the policy against labels in `eval/labels/` |
 | `eval/extract_eval.mjs` | Scores how well text is turned into action properties (keyword reader, and the live model with `--model`) |
 | `PRD.md` | Product requirements: problem, hypotheses, requirements, metrics, evaluation plan, risks |
