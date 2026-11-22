@@ -33,12 +33,13 @@
     source: ['user', 'inferred', 'external']
   };
 
-  function normalise(a) {
-    return {
-      reversible: a.reversible || 'yes', audience: a.audience || 'self', sensitive: a.sensitive || 'none',
-      precedent: a.precedent || 'never', source: a.source || 'user',
-      money: Math.max(0, Number(a.money) || 0), standing: !!a.standing, credential: !!a.credential
-    };
+  function normalise(a = {}) {
+    const out = {};
+    const defaults = { reversible: 'no', audience: 'new', sensitive: 'high', precedent: 'never', source: 'external' };
+    for (const k in FIELDS) out[k] = a[k] == null ? {reversible:'yes', audience:'self', sensitive:'none', precedent:'never', source:'user'}[k] : FIELDS[k].includes(a[k]) ? a[k] : defaults[k];
+    out.money = Number.isFinite(Number(a.money)) ? Math.max(0, Number(a.money)) : 0;
+    out.standing = a.standing === true; out.credential = a.credential === true;
+    return out;
   }
   function moneyPoints(m, c) { return m <= 0 ? 0 : m <= c.smallCap ? 1 : m <= c.midCap ? 3 : 5; }
 
@@ -54,7 +55,7 @@
     s += add(W.sensitive[a.sensitive], a.sensitive === 'high' ? 'Financial, health or identity data' : 'Personal information');
     s += add(W.precedent[a.precedent], a.precedent === 'routine' ? 'You do this routinely with the agent' : 'You have approved this once before');
     s += add(W.source[a.source], a.source === 'external' ? 'Triggered by someone else’s content, not by you' : 'The agent inferred this; you did not ask');
-    const externalRisky = a.source === 'external' && (a.money > 0 || a.audience !== 'self' || a.sensitive !== 'none');
+    const externalRisky = a.source === 'external' && (a.money > 0 || a.audience !== 'self' || a.sensitive !== 'none' || a.reversible !== 'yes');
     if (a.standing && !externalRisky) s += add(-c.standingDiscount, 'Covered by a standing rule you set');
     s += add(c.strictness, 'Strictness setting');
 
@@ -81,7 +82,9 @@
   // labels: array of { participant, task_id, label } where label is one of LEVELS.
   function majority(labels) {
     const by = {};
-    for (const l of labels) {
+    const unique = new Map();
+    for (const l of labels) if (l.participant && Number.isInteger(Number(l.task_id))) unique.set(l.participant + ":" + l.task_id, l);
+    for (const l of unique.values()) {
       if (!LEVELS.includes(l.label)) continue;
       (by[l.task_id] = by[l.task_id] || []).push(l.label);
     }
@@ -102,7 +105,7 @@
     const byCat = {}; const misses = [];
     let n = 0, exact = 0, under = 0, over = 0, severeUnder = 0;
     for (const t of tasks) {
-      const want = truth[t.id]; if (!want) continue;
+      const want = truth[t.id]; if (!LEVELS.includes(want)) continue;
       const h = LEVELS.indexOf(want), p = decide(t, config).levelIndex;
       matrix[h][p]++; n++;
       const cat = (byCat[t.cat] = byCat[t.cat] || { n: 0, exact: 0, under: 0, over: 0 });
@@ -116,10 +119,23 @@
   }
 
   function parseCsv(text) {
-    const rows = text.trim().split(/\r?\n/).map(r => r.split(',').map(x => x.trim()));
-    const head = rows.shift().map(h => h.toLowerCase());
+    const rows = []; let row = [], cell = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') { if (quoted && text[i+1] === '"') { cell += '"'; i++; } else quoted = !quoted; }
+      else if (!quoted && (c === ',' || c === '\n')) { row.push(cell.trim()); cell = ''; if (c === '\n') { rows.push(row); row = []; } }
+      else if (c !== '\r') cell += c;
+    }
+    if (quoted) throw new Error('Unclosed quoted CSV field.');
+    row.push(cell.trim()); if (row.some(Boolean)) rows.push(row);
+    const head = (rows.shift() || []).map(x => x.replace(/^\uFEFF/, '').toLowerCase());
+    if (!['participant','task_id','label'].every(k => head.includes(k))) throw new Error('CSV needs participant, task_id and label columns.');
     const ix = k => head.indexOf(k);
-    return rows.filter(r => r.length >= 3).map(r => ({ participant: r[ix('participant')], task_id: Number(r[ix('task_id')]), label: r[ix('label')], ms: Number(r[ix('ms')]) || 0 }));
+    return rows.filter(r => r.some(Boolean)).map(r => {
+      const result = { participant: r[ix('participant')], task_id: Number(r[ix('task_id')]), label: r[ix('label')], ms: Math.max(0, Number(r[ix('ms')]) || 0) };
+      if (!result.participant || !Number.isInteger(result.task_id) || result.task_id < 1 || !LEVELS.includes(result.label)) throw new Error('CSV contains an invalid answer.');
+      return result;
+    });
   }
 
   // Offline stand-in for the model: turns a sentence into attributes with keyword rules.
@@ -138,7 +154,7 @@
     a.sensitive = a.credential || has('bank', 'health', 'medical', 'salary') ? 'high' : has('photo', 'resume', 'wedding', 'moving out', 'landlord') ? 'personal' : 'none';
     a.source = has('email says', 'message says', 'asked for it in', 'instruction') ? 'external' : has('when ', 'you didn', 'dropped in price', 'runs out') ? 'inferred' : 'user';
     a.precedent = has('every month', 'as last week', 'same ', 'monthly', 'already use') ? 'routine' : 'never';
-    a.standing = false;
+    a.standing = has('rule you set', 'standing rule');
     return a;
   }
 

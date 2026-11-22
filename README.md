@@ -1,72 +1,50 @@
-# AskFirst
+﻿# AskFirst
 
-**When should an AI agent ask before acting?**
+AskFirst explains when an AI agent should act, act and tell you, ask for approval, or hand the final step back. It is for people exploring agent permissions and researchers collecting preferences about those boundaries.
 
-> Independent concept prototype for a product-management case study. Not affiliated with any company; all data is made up.
+## Features
 
-**Live demo:** _add your `pages.dev` link here after deploying_  
-**Product spec:** [PRD.md](PRD.md)
+- Live policy demo with 40 structured scenarios, rotating examples, editable properties, configurable thresholds and plain-language reasons.
+- Skippable four-step first-visit tour, reopenable from **How it works**.
+- Optional AI text reader with an eight-second timeout and offline keyword fallback. Review extracted properties before relying on a decision.
+- One-action-per-screen survey with progress, previous-answer editing and automatic local saving after every answer.
+- CSV import/export, participant-code deduplication, policy agreement chart and a clear insufficient-labels state.
+- Demo settings, survey progress, answers and tour completion persist in localStorage. Reset removes this application's saved work after confirmation.
 
-## The problem
+## Run and test
 
-AI agents now send messages, change calendars and spend money for people. Every action forces one decision: act, act and tell, ask first, or hand the last step back. AskFirst is a confirmation policy that makes that decision from a few properties of the action (can it be undone, how much money, who sees it, how sensitive, who started it), explains every decision in one sentence, and is tested against what people actually say they want.
+No framework, dependencies or build step. Serve this folder with Python:
 
-## What the prototype does
-
-- **Try the policy**: pick one of 40 actions or describe your own; see the decision, the reasons, and the screen the user would get. Every threshold is a slider.
-- **Label mode**: a 6-minute research flow where participants say how they want each of 40 actions handled. Answers export as CSV.
-- **Results**: a scorecard comparing the policy with the majority answer, with a confusion matrix, per-category breakdown and every disagreement listed.
-
-## Run it
-
-No build step and no dependencies. Open `index.html` in a browser.
-
-Tests need Node 18 or later:
-
+```sh
+python -m http.server 4173
 ```
+
+Open `http://localhost:4173`. Static hosting supports all core features; `/api/gemini` is available on Cloudflare Pages when configured.
+
+With Node 18 or later:
+
+```sh
+node --test eval/policy.test.cjs
 node eval/run_eval.mjs
 node eval/extract_eval.mjs
 ```
 
-To also score the live model:
+The rule tests assert safeguards, payment boundaries, CSV validation and vote deduplication. The evaluation scripts report descriptive comparisons; they are not accuracy pass/fail tests. Put exported research CSVs in `eval/labels/` to evaluate them. When that folder is absent, the command explicitly reports its author-guess baseline. The browser Results screen never substitutes those guesses.
 
-```
-GEMINI_API_KEY=... GEMINI_MODEL=... node eval/extract_eval.mjs --model
-```
+Optional model extraction evaluation uses server environment variables `GEMINI_API_KEY` and `GEMINI_MODEL` with `node eval/extract_eval.mjs --model`.
 
-## Deploy (Cloudflare Pages, free)
+## Deploy on Cloudflare Pages
 
-1. In the [Cloudflare dashboard](https://dash.cloudflare.com), go to **Workers & Pages → Create → Pages → Connect to Git** and pick this repository.
-2. Build settings: framework preset **None**, build command `exit 0`, build output directory `/`. Save and deploy.
-3. You get a link like `askfirst.pages.dev`. Every push to `main` redeploys automatically.
-4. To switch on the live model, open the project's **Settings → Variables and Secrets** and add:
-   - `GEMINI_API_KEY`, from [Google AI Studio](https://aistudio.google.com/apikey). Turn on **Encrypt** so it is stored as a secret.
-   - `GEMINI_MODEL`, a current Flash model name from the [models page](https://ai.google.dev/gemini-api/docs/models).
+Connect this repository to a Pages project. Choose framework **None**, build command `exit 0`, and output directory `/`. No build artifacts are needed.
 
-   Then redeploy (**Deployments → … → Retry deployment**). The server function in `functions/api/gemini.js` reads them; the key never reaches the browser.
-
-Without the key the prototype still works, using a simple offline keyword reader, and says so on screen. Never put the key in any file in this repository.
-
-Then paste the live link at the top of this README.
-
-## Files
-
-| File | What it is |
-|---|---|
-| `policy.js` | The policy engine, evaluation and the offline keyword reader (pure functions) |
-| `tasks.js` | The 40 test actions |
-| `index.html` | The prototype |
-| `functions/api/gemini.js` | Cloudflare Pages Function that calls the Gemini API, so the key never reaches the page |
-| `eval/run_eval.mjs` | Scores the policy against labels in `eval/labels/` |
-| `eval/extract_eval.mjs` | Scores how well text is turned into action properties (keyword reader, and the live model with `--model`) |
-| `PRD.md` | Product requirements: problem, hypotheses, requirements, metrics, evaluation plan, risks |
-| `base.css` | Shared styles |
+For AI extraction, add `GEMINI_API_KEY` as an encrypted secret and `GEMINI_MODEL` as a server variable, then redeploy. `functions/api/gemini.js` calls the provider on the server. Never put an API key in client code. Without these settings, structured scenarios and the offline reader continue to work.
 
 ## What is real and what is not
 
-- The Results tab compares the policy with the author's own guesses until real participants complete Label mode. Those numbers are placeholders, not findings.
-- The keyword reader is a deliberately crude offline baseline. The live model path needs an API key (see Deploy).
+The policy calculation, editable rules, local survey storage, CSV exchange and agreement calculation work. No actions execute against real apps: the demo cannot send messages, make payments, undo external actions or authenticate. A standing-rule checkbox describes an assumed permission; it does not create an agent integration.
 
-## Author
+The 40 scenarios and their legacy `guess` labels are authored examples, not participant findings. Results uses only answers saved or imported on this device. Fewer than three participants is explicitly marked insufficient for a stable conclusion; this is a display threshold, not a statistical guarantee. Inter-participant agreement is reported only on actions with at least two independent participant codes. Ties select the more cautious response, and each action has equal weight.
 
-Ronak Dhawan · product management portfolio
+Answers stay in this browser unless exported. There is no account, shared database or automatic collection from friends. Use a separate code for each person and exchange CSV files to combine responses. Codes are not verified identities. Clearing browser data can remove answers, so export research data regularly. Text entered into the optional AI reader is sent to the configured server and provider; structured scenario selection works locally.
+
+The keyword reader is imperfect; AI extraction may also misread context. Neither is a production authorization boundary. See [PRD.md](PRD.md) for the policy specification and research hypotheses.

@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url), here = path.dirname(fileURLToPat
 const A = require('../policy.js'), TASKS = require('../tasks.js');
 const dir = path.join(here, 'labels');
 let rows = [];
-for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.csv'))) rows = rows.concat(A.parseCsv(fs.readFileSync(path.join(dir, f), 'utf8')));
+for (const f of (fs.existsSync(dir) ? fs.readdirSync(dir) : []).filter(f => f.endsWith('.csv'))) rows = rows.concat(A.parseCsv(fs.readFileSync(path.join(dir, f), 'utf8')));
 let truth = {};
 if (rows.length) {
   const m = A.majority(rows); for (const id in m) truth[id] = m[id].label;

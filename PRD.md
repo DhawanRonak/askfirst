@@ -79,3 +79,15 @@ Until step 1 is done, every number in the tool is a comparison with the author's
 2. Tell me about a time an app did something for you that you did not expect.
 3. For "pay ₹149 music subscription": what would have to be true for you to never be asked?
 4. If the assistant got one of these wrong, what would you do next?
+
+## Implemented experience (22 November 2026)
+
+The first screen explains the confirmation policy and provides a live decision demo with rotating example scenarios. The demo evaluates decisions only; real execution, receipts, Undo, activity logs and standing-rule management in section 6 remain future integration requirements.
+
+A four-step first-visit walkthrough can be skipped and reopened from the header. Demo properties and policy settings persist locally. Custom text extraction times out after eight seconds and falls back to the offline reader, with a request to review the properties.
+
+Label mode presents one of 40 actions per screen, saves each answer immediately, resumes by participant code, supports previous-answer editing and exports CSV. Local CSV import merges by participant and action, replacing duplicate answers. Data stays on the device unless exported; no central collection is implemented.
+
+Results uses collected labels only, never author guesses. It charts exact match, under-asking and over-asking against the most common answer per action. Ties choose the more cautious answer. It marks samples with fewer than three participants as insufficient for stable conclusions, and computes inter-participant agreement only for actions with at least two participant codes. This threshold is a product display rule, not a claim of statistical sufficiency.
+
+External-content safeguards now cover irreversible actions even when private and without money or sensitive data. All such actions require at least approval. A reset control clears saved local work after confirmation.

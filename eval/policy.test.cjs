@@ -1,0 +1,12 @@
+﻿const test = require('node:test');
+const assert = require('node:assert/strict');
+const A = require('../policy.js');
+const tasks = require('../tasks.js');
+test('every scenario produces a finite score and valid decision',()=>{for(const t of tasks){const d=A.decide(t);assert.ok(Number.isFinite(d.score));assert.ok(A.LEVELS.includes(d.level));}});
+test('credentials and payments above the cap always hand off',()=>{assert.equal(A.decide({credential:true,standing:true,precedent:'routine'},{strictness:-2}).level,'HANDOFF');assert.equal(A.decide({money:10001,standing:true}).level,'HANDOFF');assert.notEqual(A.decide({money:10000}).level,'HANDOFF');});
+test('payments always get at least a receipt; inferred payments require approval',()=>{assert.equal(A.decide({money:200}).level,'NOTIFY');assert.equal(A.decide({money:201}).level,'ASK');assert.equal(A.decide({money:90,source:'inferred',precedent:'routine'}).level,'ASK');assert.equal(A.decide({money:149,reversible:'no',precedent:'routine',standing:true}).level,'NOTIFY');});
+test('external irreversible actions and public permanent actions cannot bypass approval',()=>{assert.ok(A.decide({source:'external',reversible:'no',standing:true,precedent:'routine'},{strictness:-2}).levelIndex>=2);assert.ok(A.decide({audience:'public',reversible:'no',standing:true,precedent:'routine'},{strictness:-2}).levelIndex>=2);});
+test('invalid enumerations cannot produce NaN',()=>{assert.ok(Number.isFinite(A.decide({source:'bogus',reversible:'bogus'}).score));});
+test('CSV handles quoted fields and rejects bad data',()=>{const rows=A.parseCsv('participant,task_id,label,ms\n"P01",19,ACT,10');assert.equal(rows[0].label,'ACT');assert.throws(()=>A.parseCsv('name,answer\nx,y'));assert.throws(()=>A.parseCsv('participant,task_id,label\nP1,19,INVALID'));});
+test('one vote per participant per action; ties use cautious answer',()=>{const m=A.majority([{participant:'P1',task_id:1,label:'ACT'},{participant:'P1',task_id:1,label:'ASK'},{participant:'P2',task_id:1,label:'NOTIFY'}]);assert.equal(m[1].n,2);assert.equal(m[1].label,'ASK');});
+test('evaluation ignores invalid truth and empty sample has zero denominators',()=>{assert.equal(A.evaluate(tasks,{1:'bad'}).n,0);assert.equal(A.evaluate(tasks,{}).exact,0);});
